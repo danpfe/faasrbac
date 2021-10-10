@@ -1,0 +1,6 @@
+kumuluzee:
+  datasources:
+    - jndi-name: jdbc/MyDS
+      connection-url: jdbc:mysql://mysql.middleware.svc.cluster.local/database
+      username: root
+      password: pass

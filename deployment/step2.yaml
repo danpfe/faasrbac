@@ -1,0 +1,75 @@
+---
+apiVersion: image.openshift.io/v1
+kind: ImageStream
+metadata:
+  name: step2
+  namespace: faas
+
+---
+apiVersion: build.openshift.io/v1
+kind: BuildConfig
+metadata:
+  name: step2
+  namespace: faas
+spec:
+  failedBuildsHistoryLimit: 1
+  successfulBuildsHistoryLimit: 1
+  output:
+    to:
+      kind: ImageStreamTag
+      name: step2:latest
+  source:
+    type: Git
+    git:
+      uri: https://github.com/danpfe/faasrbac.git
+    contextDir: step2
+  strategy:
+    dockerStrategy:
+      dockerfilePath: Dockerfile
+    type: Docker
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: mysql-secrets
+  namespace: faas
+type: Opaque
+data:
+  # Decoded: root:pass@tcp(mysql.middleware.svc.cluster.local:3306)/database
+  mysql_conn_str: cm9vdDpwYXNzQHRjcChteXNxbC5taWRkbGV3YXJlLnN2Yy5jbHVzdGVyLmxvY2FsOjMzMDYpL2RhdGFiYXNl
+
+---
+apiVersion: keda.sh/v1alpha1
+kind: TriggerAuthentication
+metadata:
+  name: keda-trigger-auth-mysql-secret
+  namespace: faas
+spec:
+  secretTargetRef:
+    - parameter: connectionString
+      name: mysql-secrets
+      key: mysql_conn_str
+
+---
+apiVersion: keda.sh/v1alpha1
+kind: ScaledJob
+metadata:
+  name: step2
+  namespace: faas
+spec:
+  jobTargetRef:
+    template:
+      spec:
+        containers:
+          - image: image-registry.openshift-image-registry.svc:5000/faas/step2:latest
+            imagePullPolicy: Always
+            name: step2
+  maxReplicaCount: 1
+  triggers:
+    - type: mysql
+      authenticationRef:
+        name: keda-trigger-auth-mysql-secret
+      metadata:
+        queryValue: "1"
+        query: "SELECT COUNT(*) FROM messages;"

@@ -1,0 +1,80 @@
+---
+apiVersion: image.openshift.io/v1
+kind: ImageStream
+metadata:
+  name: step1
+  namespace: faas
+
+---
+apiVersion: build.openshift.io/v1
+kind: BuildConfig
+metadata:
+  name: step1
+  namespace: faas
+spec:
+  failedBuildsHistoryLimit: 1
+  successfulBuildsHistoryLimit: 1
+  output:
+    to:
+      kind: ImageStreamTag
+      name: step1:latest
+  source:
+    type: Git
+    git:
+      uri: https://github.com/danpfe/faasrbac.git
+    contextDir: step1
+  strategy:
+    dockerStrategy:
+      dockerfilePath: Dockerfile
+    type: Docker
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: step1
+  namespace: faas
+spec:
+  selector:
+    matchLabels:
+      app: step1
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: step1
+    spec:
+      containers:
+        - name: step1
+          image: >-
+            image-registry.openshift-image-registry.svc:5000/faas/step1:latest
+          ports:
+            - containerPort: 8080
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: step1
+  namespace: faas
+spec:
+  selector:
+    app: step1
+  ports:
+    - protocol: TCP
+      port: 8080
+      targetPort: 8080
+
+---
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: step1
+  namespace: faas
+spec:
+  path: /api
+  to:
+    kind: Service
+    name: step1
+  port:
+    targetPort: 8080

@@ -1,0 +1,15 @@
+kumuluzee:
+  datasources:
+    - jndi-name: jdbc/MyDS
+      connection-url: jdbc:mysql://mysql.middleware.svc.cluster.local/database
+      username: root
+      password: pass
+  amqp:
+    rabbitmq:
+      hosts:
+        - name: mqtest
+          url: rabbitmq.middleware.svc.cluster.local
+          username: user
+          password: pass
+          queues:
+            - name: test

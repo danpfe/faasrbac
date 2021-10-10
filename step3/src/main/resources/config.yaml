@@ -1,0 +1,11 @@
+kumuluzee:
+  amqp:
+    rabbitmq:
+      hosts:
+        - name: mqtest
+          url: rabbitmq.middleware.svc.cluster.local
+          username: user
+          password: pass
+          queues:
+            - name: test
+

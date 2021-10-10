@@ -1,0 +1,77 @@
+---
+apiVersion: image.openshift.io/v1
+kind: ImageStream
+metadata:
+  name: step3
+  namespace: faas
+
+---
+apiVersion: build.openshift.io/v1
+kind: BuildConfig
+metadata:
+  name: step3
+  namespace: faas
+spec:
+  failedBuildsHistoryLimit: 1
+  successfulBuildsHistoryLimit: 1
+  output:
+    to:
+      kind: ImageStreamTag
+      name: step3:latest
+  source:
+    type: Git
+    git:
+      uri: https://github.com/danpfe/faasrbac.git
+    contextDir: step3
+  strategy:
+    dockerStrategy:
+      dockerfilePath: Dockerfile
+    type: Docker
+
+---
+apiVersion: v1
+data:
+  # Decoded: amqp://user:pass@rabbitmq.middleware.svc.cluster.local:5672/
+  host: YW1xcDovL3VzZXI6cGFzc0ByYWJiaXRtcS5taWRkbGV3YXJlLnN2Yy5jbHVzdGVyLmxvY2FsOjU2NzIv
+kind: Secret
+metadata:
+  name: rabbitmq-secret
+  namespace: faas
+type: Opaque
+
+---
+apiVersion: keda.sh/v1alpha1
+kind: TriggerAuthentication
+metadata:
+  name: keda-trigger-auth-rabbitmq-conn
+  namespace: faas
+spec:
+  secretTargetRef:
+    - key: host
+      name: rabbitmq-secret
+      parameter: host
+
+---
+apiVersion: keda.sh/v1alpha1
+kind: ScaledJob
+metadata:
+  name: step3
+  namespace: faas
+spec:
+  jobTargetRef:
+    template:
+      spec:
+        containers:
+          - image: image-registry.openshift-image-registry.svc:5000/faas/step3:latest
+            imagePullPolicy: Always
+            name: step3
+  maxReplicaCount: 1
+  triggers:
+    - authenticationRef:
+        name: keda-trigger-auth-rabbitmq-conn
+      metadata:
+        protocol: amqp
+        mode: QueueLength
+        value: "1"
+        queueName: test
+      type: rabbitmq
